@@ -8,13 +8,38 @@ import (
 	"os"
 )
 
-func main1() {
-	_, err := initConf()
+type Sites struct {
+	Sites []Site `json:"sites"`
+}
+
+type Site struct {
+	Name string `json:"name"`
+	Url  string `json:"url"`
+}
+
+func main() {
+	sites, err := initConf()
 	if err != nil {
 		fmt.Printf("Reading configuration error: %v\n", err)
 		return
 	}
-	http.HandleFunc("/", redirectHandler)
+	// Convert the sites to a map
+	siteMap := make(map[string]Site)
+	for _, site := range sites.Sites {
+		siteMap[site.Name] = site
+	}
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Get the site name from the URL
+		siteName := r.URL.Path[1:]
+		// Get the site from the map
+		site, ok := siteMap[siteName]
+		if !ok {
+			fmt.Printf("Site %s not found\n", siteName)
+			return
+		}
+		// Redirect to the site
+		http.Redirect(w, r, site.Url, http.StatusMovedPermanently)
+	})
 	fmt.Printf("Starting server at port 8080\n")
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
@@ -23,41 +48,26 @@ func main1() {
 	}
 }
 
-func initConf() (map[string]interface{}, error) {
+func initConf() (Sites, error) {
 	// get redirect conf path
 	confPath := os.Getenv("AFF_FWD_CONF_PATH")
 	if confPath == "" {
-		return nil, fmt.Errorf("AFF_FWD_CONF_PATH is not set")
+		return Sites{}, fmt.Errorf("AFF_FWD_CONF_PATH is not set")
+	}
+	jsonFile, err := os.Open(confPath)
+	defer jsonFile.Close()
+	if err != nil {
+		return Sites{}, fmt.Errorf("Error opening JSON file: %v", err)
 	}
 	// read the configuration file
-	config, err := mapReader(confPath)
-	return config, err
-}
-
-func redirectHandler(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func mapReader(confPath string) (map[string]interface{}, error) {
-	f, err := os.Open(confPath)
+	byteValue, err := io.ReadAll(jsonFile)
 	if err != nil {
-		return nil, err
+		return Sites{}, fmt.Errorf("Error reading JSON file: %v", err)
 	}
-	defer f.Close()
-
-	content, err := io.ReadAll(f)
+	var sites Sites
+	err = json.Unmarshal(byteValue, &sites)
 	if err != nil {
-		fmt.Printf("Could not read the configuration file: %v\n", err)
-		return nil, err
+		return Sites{}, fmt.Errorf("Error parsing JSON file: %v", err)
 	}
-
-	// Parse the JSON into a map
-	var config map[string]interface{}
-	err = json.Unmarshal(content, &config)
-	if err != nil {
-		fmt.Printf("Could not parse the configuration file: %v\n", err)
-		return nil, err
-	}
-
-	return config, nil
+	return sites, nil
 }

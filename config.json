@@ -1,6 +1,8 @@
-[
-    {
-        "name": "test",
-        "url": "https://ww.google.com"
-    }
-]
+{
+    "sites": [
+        {
+            "name": "test",
+            "url": "https://www.google.com"
+        }
+    ]
+}
