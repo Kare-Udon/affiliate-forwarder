@@ -31,6 +31,10 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Get the site name from the URL
 		siteName := r.URL.Path[1:]
+		if siteName == "favicon.ico" {
+			// Ignore favicon requests
+			return
+		}
 		// Get the site from the map
 		site, ok := siteMap[siteName]
 		if !ok {
